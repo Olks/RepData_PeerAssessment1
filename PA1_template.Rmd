@@ -1,25 +1,118 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Olks"
+date: "15 listopada 2015"
 output: 
   html_document:
     keep_md: true
 ---
-
-
 ## Loading and preprocessing the data
+Loading dataset and calculating sums:
+
+```{r, echo=TRUE}
+activitySet <- read.csv("activity.csv")
+library(dplyr)
+sumByDay <- activitySet %>% 
+                group_by (date) %>% 
+                summarize (sumByDay=sum(steps,na.rm=T))
+```
 
 
+Histogram of sums of steps per day:
+
+```{r, echo=TRUE}
+library(ggplot2)
+qplot(sumByDay$sumByDay)
+```
 
 ## What is mean total number of steps taken per day?
+Calculating mean and median:
 
+```{r, echo=TRUE}
+meanSteps <- mean(sumByDay$sumByDay,na.rm=T)
+medianSteps <- median(sumByDay$sumByDay,na.rm=T)
+```
 
+Mean of the total number of steps taken per day is eqial `r meanSteps`.
+Median of the total number of steps taken per day `r medianSteps`.
 
 ## What is the average daily activity pattern?
+Calculating average steps in each interval across all the days in the dataset:
 
+```{r, echo=TRUE}
+meanByInterval <- activitySet %>% 
+                        group_by (interval) %>% 
+                        summarize (meanByInterval=mean(steps,na.rm=T))
 
+ggplot(meanByInterval, aes(interval, meanByInterval)) + geom_line() +
+        xlab("5 min intervals during the day") + ylab("Mean number of Steps")
+
+intervalNr <- meanByInterval$interval[which.max(meanByInterval$meanByInterval)]
+```
+
+The maximum number of steps, on average across all the days in the dataset,
+contains the interval `r intervalNr`.
 
 ## Imputing missing values
+Filling NAs and making histogram of sums of steps per day:
 
+```{r, echo=TRUE}
+
+nrofNAs <- sum(!is.na(activitySet$steps))
+
+fullSet <- activitySet
+for (i in 1:length(fullSet$steps)){
+        if (is.na(fullSet$steps[i])){
+             interNr <- fullSet$interval[i]
+             fullSet$steps[i] <- 
+                     subset(meanByInterval,interval==interNr)$meanByInterval
+        }
+}
+
+
+sumByDayFull <- fullSet %>% 
+        group_by (date) %>% 
+        summarize (sumByDayFull=sum(steps,na.rm=T))
+
+library(ggplot2)
+qplot(sumByDayFull$sumByDayFull)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+Calculating differeces between dataset with NAs and without NAs:
+
+```{r, echo=TRUE}
+meanStepsFull <- mean(sumByDayFull$sumByDayFull,na.rm=T)
+medianStepsFull <- median(sumByDayFull$sumByDayFull,na.rm=T)
+```
+
+Mean for oryginal dataset: `r meanSteps`.
+Mean for complete dataset: `r meanStepsFull`.
+
+Median for oryginal dataset: `r medianSteps`.
+Median for complete dataset: `r medianStepsFull`.
+
+
+
+Creating two plots for weekdays and weekends:
+
+```{r, echo=TRUE}
+fullSet$date<-as.Date(fullSet$date)
+fullSet$weekday<-as.integer(format(fullSet$date, "%w"))
+
+fullSet$week<-0
+fullSet[fullSet$weekday>5,]$week<-1
+fullSet$week<-factor(fullSet$week,labels=c("weekday","weekend"))
+
+meanByInt <- fullSet %>% 
+        group_by (interval,week) %>% 
+        summarize (meanInt=mean(steps,na.rm=T))
+
+
+
+qplot(interval, meanInt, facets=week~., data=meanByInt,geom=c("line"),
+      ylab="number of steps")
+```
+
+
